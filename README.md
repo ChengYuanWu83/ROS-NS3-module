@@ -1,4 +1,4 @@
-# 
+# ROS-NS3-moudule
 This software is created by combining NS-3 network simulator and ROS-based robotic simulator. We tested our program on Ubuntu 20.04 with ROS Noetic and NS-3.40. 
 # Install pre-requisites
 
