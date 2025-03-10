@@ -10,15 +10,16 @@ import re
 import csv
 import signal
 import sys
+import argparse
 
 class GcsSimulator:
-    def __init__(self):
+    def __init__(self, args):
         # 初始化ROS節點
         rospy.init_node('gcs_simple_simulator')
         rospy.loginfo("GCS simulation start")
 
         self.start_time = time.time()
-        self.basic_time = float(sys.argv[1])
+        self.basic_time = args.basic_time
 
         # 創建發布者
         self.pose_pub = rospy.Publisher('/gcs/pose', PoseStamped, queue_size=1, tcp_nodelay=True)
@@ -62,9 +63,16 @@ class GcsSimulator:
         while not rospy.is_shutdown():
             self.rate.sleep()
 
+def get_parser():
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('-t', '--basic_time', default=0, type=float)    
+    return parser
+
 if __name__ == '__main__':
+    parser = get_parser()
+    args = parser.parse_args()
     try:
-        simulator = GcsSimulator()
+        simulator = GcsSimulator(args)
         simulator.main()
         
     except rospy.ROSInterruptException:

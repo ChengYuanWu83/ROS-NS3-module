@@ -47,18 +47,18 @@ std::ostream& operator<<(std::ostream& os, const NetworkConfig& config) {
 
 
 bool readConfig(const std::string& filename, NetworkConfig& config) {
-
-    // 讀取文件
+    /*
+        read network config which is sotre in static.json
+    */ 
+    
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Unable to open configuration file: " << filename << std::endl;
         return false;
     }
 
-    // 解析 JSON
-    nlohmann::json j = nlohmann::json::parse(file);
 
-    // 讀取所有配置項
+    nlohmann::json j = nlohmann::json::parse(file);
     config.updateGranularity = j["updateGranularity"].get<double>();
     config.segmentSize = j["segmentSize"].get<int>();
     config.uavsNames = j["uavsNames"].get<std::vector<std::string>>();
@@ -94,17 +94,13 @@ void readMessageTransmitLog(const std::string& filename, const std::unordered_ma
     }
 
 
-    // 讀取標題行
     std::string line;
     std::getline(file, line);
 
-    // 讀取數據行
     while (std::getline(file, line)) {
         std::stringstream ss(line);
         std::string field;
         messageTransmitLog data;
-
-        // 按順序讀取每個欄位
 
         std::getline(ss, field, ',');
         data.msg_count = std::stoi(field);

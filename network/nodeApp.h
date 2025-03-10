@@ -48,7 +48,7 @@ public:
     
 
     // 設置應用程式的基本參數
-    virtual void Setup(std::string nodeName, Ptr<Socket> socket, Ipv4Address address, uint32_t port, const std::vector<Address>& peerAddresses, uint32_t timeSlot, uint32_t round);
+    virtual void Setup(std::string nodeName, Ptr<Socket> socket, Ipv4Address address, uint32_t port, const std::vector<Address>& peerAddresses, std::string filename);
     virtual void SendPacket (messageTransmitLog logMsg);
     
 protected:
@@ -76,7 +76,7 @@ private:
     virtual void StartApplication(void) ;
     virtual void StopApplication(void);
 	virtual void HandleRead(Ptr<Socket> socket);
-    virtual void InitTimingFile(void);
+    virtual void InitTimingFile(std::string filename);
 
 };
 

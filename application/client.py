@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import rospy
 from std_msgs.msg import String
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, TransformStamped
+from sensor_msgs.msg import Image, CameraInfo
 
 import sys
 import os
@@ -10,9 +11,11 @@ import json
 import signal
 import functools
 import time
+import argparse
 
 class ROSClient:
-    def __init__(self, arg1, arg2):
+
+    def __init__(self, args):
         rospy.init_node('ros_client')
         
         self.msg_count = -1
@@ -20,22 +23,19 @@ class ROSClient:
         self.start_time = time.time()
         self.timeout_threshold = 1.0  # 1s
 
-        
-        self.basic_time = arg1
-        self.round = arg2
+        self.basic_time = args.basic_time
+        self.round = args.round
         self.time_slot = 0 + int(self.basic_time)
-
+        self.updateGranularity = 0
+        self.exp_path = args.exp_path
+        
         self.hasInitStatic = 0 # static.json is the ns3 configuration file 
         
         # define CSV path
-        self.log_dir = os.path.expanduser('./msg_logs')
-        if not os.path.exists(self.log_dir):
-            os.makedirs(self.log_dir)
+        if not os.path.exists(self.exp_path):
+            os.makedirs(self.exp_path)
             
-        self.log_file = os.path.join(
-            self.log_dir, 
-            f'message_transmit_log{self.time_slot}_{self.round}.csv'
-        )
+        self.log_file = f"{self.exp_path}/message_transmit_log{self.time_slot}_{self.round}.csv"
 
         # Initalize CSV header
         with open(self.log_file, 'w', newline='') as f:
@@ -92,12 +92,24 @@ class ROSClient:
             tcp_nodelay=True
         )
         
+        self.firefly_pose_sub = rospy.Subscriber(
+            "/firefly/transform_stamped", 
+            TransformStamped, 
+            self.firefly_pose_callback,
+            queue_size=1,
+            tcp_nodelay=True
+        )
+
+        self.firefly_image_sub = rospy.Subscriber(
+            f"/nbv/uav_image", 
+            Image, 
+            self.firefly_image_callback,
+            queue_size=1,
+            tcp_nodelay=True
+        )
         # ros node run rate
         self.rate = rospy.Rate(1000)  
 
-    def write_to_json(self, file_path):
-        with open(file_path, 'w', encoding='utf-8') as file:
-            json
 
         
     def write_to_csv(self, msg_count=None, time_diff=None, message_type=None, content=None, sender=None, receiver= None):
@@ -151,33 +163,57 @@ class ROSClient:
         )
         # rospy.loginfo(f"Published {msg_content}, Sim time: {msg_timestamp}")
 
-    def pose_callback(self, msg):
-        """Initialize the static.json to set up the position of drone"""
+    def pose_callback(self, msg): 
+        pass # [cyw]: need to rewrite
+    #     """Initialize the static.json to set up the position of drone"""
         
-        if self.hasInitStatic == 0:
-            file_path = '/home/nmsl/python_test/syncFromFile/static.json'
-            with open(file_path, 'r') as file:
-                data = json.load(file)
+    #     if self.hasInitStatic == 0:
+    #         file_path = self.exp_path
+    #         with open(file_path, 'r') as file:
+    #             data = json.load(file)
 
-            # Extract position
-            position = msg.pose.position
-            x, y, z = position.x, position.y, position.z
-            data['uavsPositions'][0] = [x, y, z]
+    #         # Extract position
+    #         position = msg.pose.position
+    #         x, y, z = position.x, position.y, position.z
+    #         data['uavsPositions'][0] = [x, y, z]
+    #         # self.updateGranularity = data['updateGranularity']
             
-            rospy.loginfo(f"Initialize the position to {data['uavsPositions'][0]}")
+    #         rospy.loginfo(f"Initialize the position to {data['uavsPositions'][0]}")
             
-            with open(file_path, 'w') as file:
-                json.dump(data, file, indent=4)
+    #         with open(file_path, 'w') as file:
+    #             json.dump(data, file, indent=4)
 
-            self.hasInitStatic = 1
+    #         self.hasInitStatic = 1
 
+    def firefly_pose_callback(self, msg):
+        print(msg)
+
+        self.msg_count += 1
+
+        msg_content = {"position_x": msg.transform.translation.x,
+                        "position_y": msg.transform.translation.y,
+                        "position_z": msg.transform.translation.z,
+                        "orientation_x": msg.transform.rotation.x,
+                        "orientation_y": msg.transform.rotation.y,
+                        "orientation_z": msg.transform.rotation.z,
+                        "orientation_w": msg.transform.rotation.w}
+        
+        msg_timestamp = msg.header.stamp.secs + msg.header.stamp.nsecs * 1e-9
+        self.write_to_csv(
+            msg_count=self.msg_count,
+            time_diff=msg_timestamp,
+            message_type='ODOMETRY',
+            content=msg_content,
+            sender="drone1",
+            receiver="gcs"
+        )
 
     def shutdown_handler(self, sig, frame):
         """Processor program shutdown"""
 
         rospy.signal_shutdown("Ctrl+C pressed")
         try:
-            time_diff = time.time() - self.start_time
+            time_diff = time.time() - self.start_time + self.basic_time
             
             # Write Close Record
             self.write_to_csv(
@@ -193,12 +229,14 @@ class ROSClient:
             rospy.logerr(f"Failed to write record on close: {str(e)}")   
 
 
-
     def send_heartbeat(self, msg, event):
         self.heartbeat_with_delay_pub.publish(msg)
 
+    def firefly_image_callback(self,msg):
+        pass
+
     def schedule_message_event(self):
-        file_path = f"/home/nmsl/ns-3.40/ns-allinone-3.40/ns-3.40/messageDelayLog{self.time_slot}_{self.round-1}.csv"
+        file_path = f"{self.exp_path}/messageDelayLog{self.time_slot}_{self.round-1}.csv"
         logData = self.read_message_dealy_log(file_path)
         for msg in logData:
             if msg['msg_type'] == 0: # heartbeat, msg_type = 0
@@ -234,15 +272,24 @@ class ROSClient:
         """Turnning on the monitoring program"""
         signal.signal(signal.SIGTERM, self.shutdown_handler)
         
-        if self.round > 1:
+        if self.round > 0:
             self.schedule_message_event()
         
         while not rospy.is_shutdown():
             self.rate.sleep()
 
+def get_parser():
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('-r', '--round', default=0, type=int)
+    parser.add_argument('-t', '--basic_time', default=0, type=float)
+    parser.add_argument('-p', '--exp_path', default='./msg_logs', type=str)
+    return parser
+
 if __name__ == '__main__':
+    parser = get_parser()
+    args = parser.parse_args()
     try:
-        monitor = ROSClient(float(sys.argv[1]), int(sys.argv[2]))
+        monitor = ROSClient(args)
         monitor.main()
     except rospy.ROSInterruptException:
         pass

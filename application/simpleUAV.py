@@ -4,19 +4,19 @@ import math
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
 from std_srvs.srv import Empty, EmptyResponse
-import subprocess
 import time
 import signal
 import sys
+import argparse
 
 class DroneSimulator:
-    def __init__(self):
+    def __init__(self, args):
 
         rospy.init_node('drone_simple_simulator')
         rospy.loginfo("Drone simulation start")
 
         self.start_time = time.time()
-        self.basic_time = float(sys.argv[1])
+        self.basic_time = args.basic_time
 
         self.last_heartbeat_time = self.start_time
         self.heartbeat_interval = 1.0
@@ -93,9 +93,16 @@ class DroneSimulator:
         signal.signal(signal.SIGTERM, self.shutdown_handler)
         self.generate_circular_trajectory()
 
+def get_parser():
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('-t', '--basic_time', default=0, type=float)    
+    return parser
+
 if __name__ == '__main__':
+    parser = get_parser()
+    args = parser.parse_args()
     try:
-        simulator = DroneSimulator()
+        simulator = DroneSimulator(args)
         simulator.main()
         
     except rospy.ROSInterruptException:

@@ -35,20 +35,19 @@ NodeApp::~NodeApp() {
     NS_LOG_FUNCTION(this);
 }
 
-void NodeApp::Setup(std::string nodeName, Ptr<Socket> socket, Ipv4Address address, uint32_t port, const std::vector<Address>& peerAddresses, uint32_t timeSlot, uint32_t round) {
+void NodeApp::Setup(std::string nodeName, Ptr<Socket> socket, Ipv4Address address, uint32_t port, const std::vector<Address>& peerAddresses, std::string filename) {
     m_nodeName = nodeName;
     m_socket = socket;
     m_address = address;
     m_port = port;
     m_peerAddresses = peerAddresses;
-    m_timeSlot = timeSlot;
-    m_round = round;
+
 
     if (!s_isInitialized) {
         s_packetSendTimes.clear();
         s_address2Name.clear();
         s_isInitialized = true;
-        InitTimingFile();
+        InitTimingFile(filename);
         NS_LOG_INFO("Initialized shared data structures");
     }
 
@@ -82,9 +81,7 @@ void NodeApp::StopApplication(void) {
     NS_LOG_INFO("[" << m_nodeName << " stopped]");
 }
 
-
-void NodeApp::InitTimingFile(void) {
-    std::string filename = "messageDelayLog" + std::to_string(m_timeSlot) + "_" + std::to_string(m_round) + ".csv";;
+void NodeApp::InitTimingFile(std::string filename) {
     s_messageDelayLog.open(filename);
     if (s_messageDelayLog.is_open()) {
         s_messageDelayLog << "msg_count,msg_type,sendTime,recvTime,delay,sender,receiver" << std::endl;
